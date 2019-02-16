@@ -1,0 +1,6 @@
+[package]
+name = "zerver"
+version = "0.1.0"
+authors = ["Zach Schuermann <zachary.zvs@gmail.com>"]
+
+[dependencies]
