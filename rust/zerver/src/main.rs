@@ -14,19 +14,24 @@ fn setup_listen_socket(port: i16) {
 
     let listener = UnixListener::bind("localhost:5051").unwrap();
 
-    // accept connections and process them, spawning a new thread for each one
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                /* connection succeeded */
-                thread::spawn(|| handle_client(stream));
-            }
-            Err(err) => {
-                /* connection failed */
-                break;
-            }
-        }
+    match listener.accept() {
+        Ok((socket, addr)) => println!("Got a client: {:?}", addr),
+        Err(e) => println!("accept function failed: {:?}", e),
     }
+
+    // accept connections and process them, spawning a new thread for each one
+    //for stream in listener.incoming() {
+    //    match stream {
+    //        Ok(stream) => {
+    //            /* connection succeeded */
+    //            thread::spawn(|| handle_client(stream));
+    //        }
+    //        Err(err) => {
+    //            /* connection failed */
+    //            break;
+    //        }
+    //    }
+    //}
 
     // create TCP socket
     // socket(AF_INTET, socket_type, protocol) in C
