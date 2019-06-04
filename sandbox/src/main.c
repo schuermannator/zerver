@@ -8,6 +8,8 @@
 #include <sys/stat.h>
 #include "util.h"
 
+#define SERVER_STRING "Server: zerver/0.1\r\n"
+
 void fatal(const char*);
 int setup_listen_socket(int port);
 void server_loop(int server_socket);
@@ -114,7 +116,9 @@ void handle_client(int client_socket) {
 }
 
 void handle_http_method(char* method_buffer, int client_socket){
-   char* method, path;
+   char* method;
+   char* path;
+
    method = strtok(method_buffer, " ");
    strtolower(method);
    path = strtok(NULL, " ");
@@ -125,6 +129,11 @@ void handle_http_method(char* method_buffer, int client_socket){
       handle_post_method(path, client_socket);
    else
       handle_unimplemented_method(client_socket);
+}
+
+
+void handle_http_404(int client_socket) {
+   return;
 }
 
 void handle_get_method(char* path, int client_socket) {
