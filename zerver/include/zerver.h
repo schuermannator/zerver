@@ -11,13 +11,15 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <pthread.h>
 #include "util.h"
 
 #define SERVER_STRING "Server: zerver/0.1.0\r\n"
 
 void fatal(const char*);
 int setup_listen_socket(int port);
-void server_loop(int server_socket);
+//void server_loop(int server_socket);
+void* server_loop(void* target);
 void handle_client(int client_socket);
 void handle_http_method(char* method_buffer, int client_socket);
 void handle_get_method(char* path, int client_socket);

@@ -1,8 +1,11 @@
 #include "zerver.h"
 
+// thread count
 #define NUM_WORKERS 100
-static pid_t pids[NUM_WORKERS];
+pthread_t threads[NUM_WORKERS];
 
+int server_socket;
+pthread_mutex_t mlock = PTHREAD_MUTEX_INITIALIZER;
 
 int setup_listen_socket(int port) {
    int sock;
@@ -48,19 +51,20 @@ int setup_listen_socket(int port) {
    return sock;
 }
 
-void server_loop(int server_socket) {
+void* server_loop(void* target) {
    struct sockaddr_in client_addr;
    socklen_t client_addr_len = sizeof(client_addr);
-   signal(SIGINT, SIG_IGN);
+
    while (1) {
-      int client_socket = accept(server_socket,
+      pthread_mutex_lock(&mlock);
+      long client_socket = accept(server_socket,
                                  (struct sockaddr*)&client_addr,
                                  &client_addr_len);
       if (client_socket == -1)
          fatal("accept()");
+      pthread_mutex_unlock(&mlock);
 
       handle_client(client_socket);
-      close(client_socket);
    }
 }
 
@@ -192,38 +196,21 @@ void transfer_file_contents(char* file_path, int client_socket, off_t file_size)
    close(fd);
 }
 
-pid_t create_child(int index, int listening_socket) {
-   pid_t pid;
-
-   pid = fork();
-   if (pid < 0)
-      fatal("fork()");
-   else if (pid > 0)
-      return pid;
-
-   printf("Server %d(pid: %ld) starting\n", index, (long)getpid());
-   server_loop(listening_socket);
-   return pid;
-}
-
-void sigint_handler(int signo) {
-    printf("Signal handler called\n");
-    for(int i=0; i < NUM_WORKERS; i++)
-        kill(pids[i], SIGTERM);
-    while (wait(NULL) > 0);
-    print_stats();
+void create_thread(int index) {
+   pthread_create(&threads[index], NULL, &server_loop, NULL);
+   //printf("Server %d(pid: %ld) starting\n", index, (long)getpid());
 }
 
 int main(int argc, char** argv) {
    int server_port = DEFAULT_SERVER_PORT;
 
-   int server_socket = setup_listen_socket(server_port);
+   server_socket = setup_listen_socket(server_port);
 
-   //signal(SIGINT, print_stats);
+   signal(SIGINT, print_stats);
 
    printf("Zerver running on port %d\n", server_port);
    for(int i=0; i < NUM_WORKERS; i++)
-      pids[i] = create_child(i, server_socket);
+      create_thread(i);
 
    for(;;)
       pause();

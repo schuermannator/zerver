@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -c -O3 -Wall -g
+CFLAGS = -c -O3 -Wall -g -pthread
 
 EXE = main
 SRC_DIR = src
@@ -27,8 +27,8 @@ clean:
 
 .PHONY: image
 image:
-	docker build . -t zerver-test
+	docker build . -t zerver
 
 .PHONY: run
 run: image
-	docker run -it -p 5051:5051 zerver-test:latest
+	docker run -it -p 5051:5051 zerver:latest
