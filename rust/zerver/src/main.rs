@@ -5,13 +5,13 @@ use std::io::prelude::*;
 
 const DEFAULT_SERVER_PORT: i16 = 5051;
 
-fn send_headers(stream: &mut TcpStream, path: String) {
+fn send_headers(stream: &mut TcpStream, len: u64) {
     println!("sending header");
     let mut writer = BufWriter::new(stream);
-    let header = "HTTP/1.0 200 OK\r\n\
+    let header = format!("HTTP/1.0 200 OK\r\n\
                   Content-Type: text/html\r\n\
-                  content-length: 5000\r\n\
-                  \r\n";
+                  content-length: {}\r\n\
+                  \r\n", len);
     writer.write_all(header.as_bytes()).unwrap();
 }
 
@@ -35,6 +35,8 @@ fn handle_http_404(stream: &mut TcpStream) {
         </body>
         </html>";
 
+    //send_headers(stream, resp404.len() as u64);
+
     let mut writer = BufWriter::new(stream);
     writer.write_all(resp404.as_bytes()).unwrap();
 }
@@ -52,16 +54,23 @@ fn handle_get_method(stream: &mut TcpStream, path: &str) {
     let f = File::open(p);
     if f.is_err() {
         handle_http_404(stream);
+        return;
     }
+    let mut fi = f.unwrap();
+
+    let meta = fi.metadata().unwrap();
 
     let mut buffer = Vec::new();
     // read the whole file
-    f.unwrap().read_to_end(&mut buffer);
+    fi.read_to_end(&mut buffer).unwrap();
+
+    send_headers(stream, meta.len());
 
     //println!("{:?}", f);
     println!("Sending file contents");
     let mut writer = BufWriter::new(stream);
-    writer.write_all(&buffer).unwrap();
+    let written = writer.write_all(&buffer).unwrap();
+    println!("{:?}", written)
 }
 
 fn handle_http_method(stream: &mut TcpStream, ln: String) {
@@ -87,7 +96,7 @@ fn handle_client(stream: &mut TcpStream) {
     //stream.read_to_end(&mut buffer).expect("Failed to read TcpStream to buf");
     //or we can do fixed size
     let mut buffer = [0; 1024];
-    stream.read(&mut buffer);
+    stream.read(&mut buffer).unwrap();
     for line in buffer.lines() {
         println!("{:?}", line); //these are all surrounded in Ok()
         let ln = line.unwrap();
