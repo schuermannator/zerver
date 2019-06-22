@@ -3,10 +3,14 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::io::prelude::*;
 
+extern crate zerver;
+use zerver::ThreadPool;
+
 const DEFAULT_SERVER_PORT: i16 = 5051;
+const THREADS: usize = 2000;
 
 fn send_headers(stream: &mut TcpStream, len: u64) {
-    println!("sending header");
+    //println!("sending header");
     let mut writer = BufWriter::new(stream);
     let header = format!("HTTP/1.0 200 OK\r\n\
                   Content-Type: text/html\r\n\
@@ -22,16 +26,16 @@ fn send_headers(stream: &mut TcpStream, len: u64) {
 //}
 
 fn handle_http_404(stream: &mut TcpStream) {
-    let resp404 = "HTTP/1.0 404 Not Found\r
-        Content-type: text/html\r
-        \r
+    let resp404 = "HTTP/1.0 404 Not Found\r\n\
+        Content-Type: text/html\r\n\
+        \r\n\
         <html>
         <head>
         <title>Zerver: Not Found</title>
         </head>
         <body>
         <h1>Not Found (404)</h1>
-        <p>Client request for an object that was not found on this server.</p>
+        <p>Client request for an object not found on the server.</p>
         </body>
         </html>";
 
@@ -67,10 +71,9 @@ fn handle_get_method(stream: &mut TcpStream, path: &str) {
     send_headers(stream, meta.len());
 
     //println!("{:?}", f);
-    println!("Sending file contents");
+    //println!("Sending file contents");
     let mut writer = BufWriter::new(stream);
-    let written = writer.write_all(&buffer).unwrap();
-    println!("{:?}", written)
+    writer.write_all(&buffer).unwrap();
 }
 
 fn handle_http_method(stream: &mut TcpStream, ln: String) {
@@ -88,7 +91,7 @@ fn handle_http_method(stream: &mut TcpStream, ln: String) {
 }
 
 fn handle_client(stream: &mut TcpStream) {
-    println!("Got request!");
+    //println!("Got request!");
 
     // why does this have to be mutable?
     // read the whole file -- fails (hangs) due to not terminating somehow?
@@ -98,9 +101,13 @@ fn handle_client(stream: &mut TcpStream) {
     let mut buffer = [0; 1024];
     stream.read(&mut buffer).unwrap();
     for line in buffer.lines() {
-        println!("{:?}", line); //these are all surrounded in Ok()
+        //println!("{:?}", line); //these are all surrounded in Ok()
         let ln = line.unwrap();
         println!("{}", ln);
+        /*
+         * let get = b"GET / HTTP/1.1\r\n";
+         * if buffer.starts_with(get) {
+         */
         handle_http_method(stream, ln);
         break; // only using first line
     }
@@ -109,12 +116,18 @@ fn handle_client(stream: &mut TcpStream) {
 
 fn main() -> std::io::Result<()> {
 
+
     let host = format!("127.0.0.1:{}", DEFAULT_SERVER_PORT);
-    let listener = TcpListener::bind(host)?;
+    let listener = TcpListener::bind(host).unwrap();
+
+    let pool = ThreadPool::new(THREADS);
 
     // accept connections and process them serially
     for stream in listener.incoming() {
-        handle_client(&mut stream?);
+        let mut stream = stream.unwrap();
+        pool.execute(move || {
+            handle_client(&mut stream);
+        });
     }
     Ok(())
 }
